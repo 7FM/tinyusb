@@ -127,7 +127,7 @@ typedef struct {
   // uint8_t interface_count; // bNumInterfaces alias
 
   // Endpoint & Interface
-  uint8_t itf2drv[CFG_TUH_INTERFACE_MAX];  // map interface number to driver (0xff is invalid)
+  uint8_t itf2drv[CFG_TUH_INTERFACE_MAX ? CFG_TUH_INTERFACE_MAX : 1];  // map interface number to driver (0xff is invalid)
   uint8_t ep2drv[CFG_TUH_ENDPOINT_MAX][2]; // map endpoint to driver ( 0xff is invalid ), can use only 4-bit each
 
   tu_edpt_state_t ep_status[CFG_TUH_ENDPOINT_MAX][2];
@@ -205,9 +205,9 @@ static usbh_class_driver_t const usbh_class_drivers[] = {
     .name       = DRIVER_NAME("VENDOR"),
     .init       = cush_init,
     .deinit     = cush_deinit,
-    .open       = cush_open,
+    .open       = cush_open_subtask,
     .set_config = cush_set_config,
-    .xfer_cb    = cush_isr,
+    .xfer_cb    = cush_xfer_cb,
     .close      = cush_close
   }
   #endif
@@ -1754,12 +1754,15 @@ void usbh_driver_set_config_complete(uint8_t dev_addr, uint8_t itf_num) {
   }
 
   // all interface are configured
+
+    TU_LOG_USBH("Itf_num=%u INTERFACE_MAX=%u\r\n", itf_num, CFG_TUH_INTERFACE_MAX);
   if (itf_num == CFG_TUH_INTERFACE_MAX) {
     enum_full_complete();
 
     if (is_hub_addr(dev_addr)) {
       TU_LOG_USBH("HUB address = %u is mounted\r\n", dev_addr);
     }else {
+      TU_LOG_USBH("INVODE MOUNT CALLBACK\r\n");
       // Invoke callback if available
       if (tuh_mount_cb) tuh_mount_cb(dev_addr);
     }
